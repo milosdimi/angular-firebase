@@ -27,9 +27,15 @@ export class NoteListService implements OnDestroy {
     this.unsubTrash = this.subTrashList();
   }
 
+  async deleteNote(colId: 'notes' | 'trash', docId: string) {
+    await deleteDoc(this.getSingleDocRef(colId, docId)).catch((err) => {
+      console.error('Error deleting document: ', err);
+    });
+  }
+
   async updateNote(note: Note) {
     if (note.id) {
-      let docRef = this.getSingleDocRef(this.getColIdFromNote(note), note.id);
+      const docRef = this.getSingleDocRef(this.getColIdFromNote(note), note.id);
       await updateDoc(docRef, this.getCleanJson(note)).catch((err) => {
         console.error('Error updating document: ', err);
       });
@@ -45,16 +51,14 @@ export class NoteListService implements OnDestroy {
     };
   }
 
-  getColIdFromNote(note: Note): string {
-    if (note.type == 'note') {
-      return 'notes';
-    } else {
-      return 'trash';
-    }
+  getColIdFromNote(note: Note): 'notes' | 'trash' {
+    return note.type === 'note' ? 'notes' : 'trash';
   }
 
-  async addNote(item: Note) {
-    await addDoc(this.getNotesRef(), item)
+  async addNote(item: Note, colId: 'notes' | 'trash') {
+    const colRef = colId === 'trash' ? this.getTrashRef() : this.getNotesRef();
+
+    await addDoc(colRef, this.getCleanJson(item) as any)
       .catch((err) => {
         console.error('Error adding document: ', err);
       })
@@ -63,8 +67,9 @@ export class NoteListService implements OnDestroy {
       });
   }
 
-  ngOnDestroy(): void {
-    throw new Error('Method not implemented.');
+  ngOnDestroy() {
+    this.unsubNotes?.();
+    this.unsubTrash?.();
   }
 
   subTrashList() {
