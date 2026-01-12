@@ -4,6 +4,9 @@ import {
   Firestore,
   doc,
   onSnapshot,
+  addDoc,
+  updateDoc,
+  deleteDoc,
 } from '@angular/fire/firestore';
 import { Note } from '../interfaces/note.interface';
 
@@ -14,8 +17,8 @@ export class NoteListService implements OnDestroy {
   trashNotes: Note[] = [];
   normalNotes: Note[] = [];
 
-  unsubTrash;
-  unsubNotes;
+  unsubTrash?: () => void;
+  unsubNotes?: () => void;
 
   firestore: Firestore = inject(Firestore);
 
@@ -24,9 +27,44 @@ export class NoteListService implements OnDestroy {
     this.unsubTrash = this.subTrashList();
   }
 
-  ngOnDestroy() {
-    this.unsubNotes();
-    this.unsubTrash();
+  async updateNote(note: Note) {
+    if (note.id) {
+      let docRef = this.getSingleDocRef(this.getColIdFromNote(note), note.id);
+      await updateDoc(docRef, this.getCleanJson(note)).catch((err) => {
+        console.error('Error updating document: ', err);
+      });
+    }
+  }
+
+  getCleanJson(note: Note): {} {
+    return {
+      type: note.type,
+      title: note.title,
+      content: note.content,
+      marked: note.marked,
+    };
+  }
+
+  getColIdFromNote(note: Note): string {
+    if (note.type == 'note') {
+      return 'notes';
+    } else {
+      return 'trash';
+    }
+  }
+
+  async addNote(item: Note) {
+    await addDoc(this.getNotesRef(), item)
+      .catch((err) => {
+        console.error('Error adding document: ', err);
+      })
+      .then((docRef) => {
+        console.log('Document written with ID: ', docRef?.id);
+      });
+  }
+
+  ngOnDestroy(): void {
+    throw new Error('Method not implemented.');
   }
 
   subTrashList() {
@@ -37,6 +75,7 @@ export class NoteListService implements OnDestroy {
       });
     });
   }
+
   subNotesList() {
     return onSnapshot(this.getNotesRef(), (list) => {
       this.normalNotes = [];
